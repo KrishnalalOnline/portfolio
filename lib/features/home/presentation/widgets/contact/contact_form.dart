@@ -1,6 +1,5 @@
+import 'dart:html' as html;
 import 'package:flutter/material.dart';
-import 'package:new_portfolio/core/network/google_form_client.dart';
-
 import 'success_dialog.dart';
 
 class ContactForm extends StatefulWidget {
@@ -17,20 +16,46 @@ class _ContactFormState extends State<ContactForm> {
   final _emailController = TextEditingController();
   final _messageController = TextEditingController();
 
-  final _googleFormClient = GoogleFormClient();
-
   bool _isSubmitting = false;
 
-  Future<void> _submitForm() async {
-    if (!_formKey.currentState!.validate()) return;
+  void _submitForm() {
+  if (!_formKey.currentState!.validate()) return;
 
-    setState(() => _isSubmitting = true);
+  setState(() => _isSubmitting = true);
 
-    await _googleFormClient.submit(
-      subject: _subjectController.text,
-      email: _emailController.text,
-      message: _messageController.text,
-    );
+  // Create hidden iframe
+  final iframe = html.IFrameElement()
+    ..name = 'hidden_iframe'
+    ..style.display = 'none';
+
+  html.document.body!.append(iframe);
+
+  // Create form
+  final form = html.FormElement()
+    ..action =
+        'https://docs.google.com/forms/d/e/1FAIpQLSeK10wEvCmb0H94mT4B718ImJqCe4adKBIBUh-cxcjKKRnfsw/formResponse'
+    ..method = 'POST'
+    ..target = 'hidden_iframe'
+    ..style.display = 'none';
+
+  form.children.addAll([
+    html.InputElement()
+      ..name = 'entry.1065046570'
+      ..value = _subjectController.text,
+    html.InputElement()
+      ..name = 'entry.1166974658'
+      ..value = _emailController.text,
+    html.InputElement()
+      ..name = 'entry.839337160'
+      ..value = _messageController.text,
+  ]);
+
+  html.document.body!.append(form);
+
+  // ✅ WAIT FOR SUBMISSION TO COMPLETE
+  iframe.onLoad.listen((_) {
+    form.remove();
+    iframe.remove();
 
     _formKey.currentState!.reset();
     _subjectController.clear();
@@ -39,14 +64,17 @@ class _ContactFormState extends State<ContactForm> {
 
     setState(() => _isSubmitting = false);
 
-    if (!mounted) return;
-
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => const SuccessDialog(),
     );
-  }
+  });
+
+  // Submit AFTER listener is attached
+  form.submit();
+}
+
 
   @override
   Widget build(BuildContext context) {
@@ -105,6 +133,7 @@ class _ContactFormState extends State<ContactForm> {
     );
   }
 }
+
 
 class _InputField extends StatelessWidget {
   final String label;
